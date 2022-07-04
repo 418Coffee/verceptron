@@ -1,0 +1,15 @@
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: vlang/setup-v@v1
+        with:
+          check-latest: true
+          version: "latest"
+      - uses: actions/checkout@v3
+      - run: v test .
