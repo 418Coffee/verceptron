@@ -12,4 +12,4 @@ jobs:
           check-latest: true
           version: "latest"
       - uses: actions/checkout@v3
-      - run: v test .
+      - run: v -stats test .
