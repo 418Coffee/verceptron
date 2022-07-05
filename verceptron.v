@@ -47,14 +47,21 @@ fn load_inputs_from_png(image stbi.Image) ?PngConfig {
 		return error('invalid file dimensions: ${image.width}x$image.width, should be ${width}x$height')
 	}
 	// TODO:
-	// clone the bytes and free the original ones?
+	// clone the bytes AND free the original ones?
 	data := unsafe { image.data.vbytes(resolution * image.nr_channels).clone() }
 	mut inputs := Vector{
 		e: [][]i8{cap: height}
 	}
 	mut line := []i8{cap: width}
 	for i := 0; i < data.len; i += 4 {
-		line << png_input_value(Pixel([4]u8{init: data[i + it]}))
+		$if macos {
+			line << png_input_value(Pixel([data[i], data[i+1], data[i+2], data[i+3]]!))
+		} $else {
+			// This is causes issues on macos: 
+			// https://github.com/418Coffee/verceptron/runs/7198810267?check_suite_focus=true
+			line << png_input_value(Pixel([4]u8{init: data[i + it]}))
+		}
+		
 		if line.len == width {
 			inputs.e << line
 			line = []i8{cap: width}
