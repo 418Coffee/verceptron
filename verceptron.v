@@ -24,61 +24,6 @@ mut:
 	e [][]i8
 }
 
-struct PngConfig {
-	channels int
-
-	inputs Vector
-}
-
-type Pixel = [4]u8
-
-fn png_sigmoid(x int) i8 {
-	return i8(1 / (1 + math.pow(math.e, -(f64(x) - 637.5))))
-}
-
-fn png_input_value(p Pixel) i8 {
-	return png_sigmoid((p[0] + p[1] + p[2] + p[3]))
-}
-
-fn load_inputs_from_png(image stbi.Image) ?PngConfig {
-	// image.ok is always true:
-	// https://github.com/vlang/v/blob/master/vlib/stbi/stbi.c.v#L88
-	if image.width != width || image.height != height {
-		return error('invalid file dimensions: ${image.width}x$image.width, should be ${width}x$height')
-	}
-	// TODO:
-	// clone the bytes AND free the original ones?
-	data := unsafe { image.data.vbytes(resolution * image.nr_channels).clone() }
-	mut inputs := Vector{
-		e: [][]i8{cap: height}
-	}
-	mut line := []i8{cap: width}
-	for i := 0; i < data.len; i += 4 {
-		$if macos {
-			line << png_input_value(Pixel([data[i], data[i+1], data[i+2], data[i+3]]!))
-		} $else {
-			// This is causes issues on macos: 
-			// https://github.com/418Coffee/verceptron/runs/7198810267?check_suite_focus=true
-			line << png_input_value(Pixel([4]u8{init: data[i + it]}))
-		}
-		
-		if line.len == width {
-			inputs.e << line
-			line = []i8{cap: width}
-		}
-	}
-	return PngConfig{
-		channels: image.nr_channels
-		inputs: inputs
-	}
-}
-
-fn create_weights(width int, height int) Vector {
-	return Vector{
-		e: [][]i8{len: height, init: []i8{len: width}}
-	}
-}
-
 fn (a Vector) * (b Vector) i8 {
 	if a.e.len == 0 || b.e.len == 0 {
 		panic('vectors may not be empty')
@@ -135,6 +80,61 @@ fn (a Vector) - (b Vector) Vector {
 		}
 	}
 	return updated
+}
+
+struct PngConfig {
+	channels int
+
+	inputs Vector
+}
+
+type Pixel = [4]u8
+
+fn png_sigmoid(x int) i8 {
+	return i8(1 / (1 + math.pow(math.e, -(f64(x) - 637.5))))
+}
+
+fn png_input_value(p Pixel) i8 {
+	return png_sigmoid((p[0] + p[1] + p[2] + p[3]))
+}
+
+fn load_inputs_from_png(image stbi.Image) ?PngConfig {
+	// image.ok is always true:
+	// https://github.com/vlang/v/blob/master/vlib/stbi/stbi.c.v#L88
+	if image.width != width || image.height != height {
+		return error('invalid file dimensions: ${image.width}x$image.width, should be ${width}x$height')
+	}
+	// TODO:
+	// clone the bytes AND free the original ones?
+	data := unsafe { image.data.vbytes(resolution * image.nr_channels).clone() }
+	mut inputs := Vector{
+		e: [][]i8{cap: height}
+	}
+	mut line := []i8{cap: width}
+	for i := 0; i < data.len; i += 4 {
+		$if macos {
+			line << png_input_value(Pixel([data[i], data[i + 1], data[i + 2], data[i + 3]]!))
+		} $else {
+			// This is causes issues on macos:
+			// https://github.com/418Coffee/verceptron/runs/7198810267?check_suite_focus=true
+			line << png_input_value(Pixel([4]u8{init: data[i + it]}))
+		}
+
+		if line.len == width {
+			inputs.e << line
+			line = []i8{cap: width}
+		}
+	}
+	return PngConfig{
+		channels: image.nr_channels
+		inputs: inputs
+	}
+}
+
+fn create_weights(width int, height int) Vector {
+	return Vector{
+		e: [][]i8{len: height, init: []i8{len: width}}
+	}
 }
 
 fn clampi(x int, a int, b int) int {
@@ -229,7 +229,6 @@ fn rand_circle(width int, height int) ?Vector {
 	} else {
 		r = rand.int_in_range(min_radius, r)?
 	}
-	// println("cx:$cx cy:$cy r:$r")
 	fill_circle(mut circle, cx, cy, r, 1)
 	return circle
 }
